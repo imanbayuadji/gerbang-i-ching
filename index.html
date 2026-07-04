@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meramal ala Iching</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Serif', serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #fef3c7; /* Amber 50 */
+        }
+
+        h1, h2, h3, .hexagram-symbol {
+            font-family: 'Cinzel', serif;
+        }
+
+        .hexagram-symbol {
+            line-height: 1;
+        }
+
+        .card-container {
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s, box-shadow 0.3s;
+            transform-style: preserve-3d;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-container:hover .card {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(251, 191, 36, 0.3);
+        }
+
+        .card-back, .card-front {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #7f1d1d, #450a0a); /* Dark red gradient */
+            border: 2px solid #b45309; /* Amber 600 */
+            color: #fbbf24; /* Amber 400 */
+            font-size: 1.5rem;
+        }
+
+        .card-back::after {
+            content: '☯';
+            font-size: clamp(1rem, 3vw, 2rem);
+            opacity: 0.7;
+        }
+
+        .card-front {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #1e3a8a;
+            transform: rotateY(180deg);
+            border: 2px solid #b45309;
+        }
+
+        .modal-enter {
+            animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .shuffle-anim {
+            animation: shuffleEffect 0.5s ease-in-out;
+        }
+
+        @keyframes shuffleEffect {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(0.9); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden flex items-center justify-center">
+
+    <!-- Screen Log Masuk / Password Gate -->
+    <div id="password-screen" class="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-4 z-50">
+        <!-- Background Ornament Khusus Screen Password -->
+        <div class="absolute w-80 h-80 bg-amber-600/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute w-96 h-96 bg-red-900/10 rounded-full blur-3xl pointer-events-none bottom-0 right-0"></div>
+        
+        <div class="bg-gradient-to-b from-slate-900 to-slate-800 border border-amber-500/30 rounded-2xl p-6 sm:p-10 max-w-md w-full shadow-2xl text-center relative z-10">
+            <div class="text-6xl text-amber-400 hexagram-symbol mb-4 animate-pulse">☯</div>
+            <h2 class="text-2xl sm:text-3xl font-bold text-amber-300 mb-2">Gerbang I Ching</h2>
+            <p class="text-slate-400 text-sm mb-6">Masukkan kata sandi untuk berkonsultasi dengan takdir Anda.</p>
+            
+            <div class="space-y-4">
+                <input type="password" id="password-input" placeholder="Kata Sandi" class="w-full px-4 py-3 rounded-lg bg-slate-950 border border-amber-600/50 text-amber-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition text-center font-mono">
+                <p id="password-error" class="text-red-400 text-xs font-bold hidden">Kata sandi salah. Silakan coba lagi.</p>
+                <button id="password-submit-btn" class="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg transform transition active:scale-95 border border-amber-400/30">
+                    Buka Gerbang
+                </button>
+            </div>
+            
+            <div class="mt-8 text-xs text-slate-500">
+                developed by Junialdi
+            </div>
+        </div>
+    </div>
+
+    <!-- Konten Utama Aplikasi (Disembunyikan secara default menggunakan kelas 'hidden') -->
+    <div id="app-content" class="hidden min-h-screen flex flex-col items-center justify-between p-4 sm:p-8 w-full relative z-10">
+        <header class="text-center mb-8 w-full max-w-4xl z-10">
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 mb-2 drop-shadow-lg">
+                Meramal ala Iching
+            </h1>
+            <p class="text-xl sm:text-2xl text-amber-200 italic mb-1">"Ajukan 1 pertanyaan"</p>
+            <p class="text-sm text-slate-400">Pusatkan pikiran pada pertanyaan Anda, lalu pilih satu kartu di bawah ini.</p>
+            
+            <div id="shuffle-indicator" class="mt-4 text-xs font-bold text-amber-500 bg-amber-900/30 px-3 py-1 rounded-full inline-block opacity-0 transition-opacity duration-300">
+                Kartu sedang diacak...
+            </div>
+        </header>
+
+        <main class="flex-grow flex items-center justify-center w-full max-w-3xl z-10">
+            <div id="card-grid" class="grid grid-cols-8 grid-rows-8 gap-1 sm:gap-2 w-full aspect-square">
+                <!-- Kartu akan di-generate oleh JavaScript di sini -->
+            </div>
+        </main>
+
+        <footer class="mt-10 mb-4 text-center z-10">
+            <p class="text-slate-500 font-serif tracking-widest text-sm">developed by Junialdi</p>
+        </footer>
+
+        <!-- Background Ornaments -->
+        <div class="fixed top-0 left-0 w-64 h-64 bg-amber-600/10 rounded-full blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2"></div>
+        <div class="fixed bottom-0 right-0 w-96 h-96 bg-red-900/10 rounded-full blur-3xl pointer-events-none translate-x-1/3 translate-y-1/3"></div>
+
+        <div id="result-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-gradient-to-b from-slate-900 to-slate-800 border border-amber-500/50 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden hidden" id="modal-content">
+                
+                <div class="relative h-32 bg-gradient-to-r from-red-900 to-slate-900 flex items-center justify-center overflow-hidden">
+                    <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(#fbbf24 1px, transparent 1px); background-size: 16px 16px;"></div>
+                    <div id="modal-symbol" class="text-8xl text-amber-400 hexagram-symbol relative z-10 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]">䷀</div>
+                </div>
+
+                <div class="p-6 sm:p-8 text-center">
+                    <h2 id="modal-name" class="text-2xl sm:text-3xl font-bold text-amber-300 mb-6 border-b border-amber-700/50 pb-4">NAMA HEXAGRAM</h2>
+                    
+                    <div class="text-slate-300 text-base sm:text-lg leading-relaxed text-justify mb-8" id="modal-meaning">
+                        Makna hexagram akan muncul di sini.
+                    </div>
+
+                    <button id="close-modal-btn" class="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition active:scale-95 border border-amber-400/30">
+                        Selesai
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data 64 Hexagram berdasarkan referensi dokumen
+        const hexagramData = [
+            { id: 1, symbol: '䷀', name: 'QIAN (CHIEN): LANGIT', arti: 'Mengandung arti keberhasilan dan manfaat besar yang dapat diraih atau dicapai, dengan syarat harus menempuh jalan yang benar.' },
+            { id: 2, symbol: '䷁', name: 'KUN (KHUN): BUMI', arti: 'Akan selalu mujur apabila selalu bersikap ikhlas menerima kenyataan, menjaga keseimbangan Yin-Yang, dan berpegang pada jalan kebenaran.' },
+            { id: 3, symbol: '䷂', name: 'TUN: SULIT PADA PERMULAAN', arti: 'Usaha harus dimulai dengan tindakan yang mampu mengatasi bahaya awal untuk memperoleh kesuksesan, serta senantiasa berpegang pada kebenaran agar terhindar dari kegagalan.' },
+            { id: 4, symbol: '䷃', name: 'MUNG (MENG): KEKANAK-KANAKAN', arti: 'Melambangkan pendidikan di mana muridlah yang harus memiliki inisiatif belajar, membiasakan diri berpikir, serta pendidikan dijalankan pada jalur yang benar.' },
+            { id: 5, symbol: '䷄', name: 'XU (SI): MENUNGGU', arti: 'Menunggu datangnya saat yang tepat dengan sabar, yakin, berterus terang, berusaha keras, dan memegang teguh kebenaran akan membawa kesuksesan yang gemilang dan lancar.' },
+            { id: 6, symbol: '䷅', name: 'SONG (SUNG): PERTIKAIAN', arti: 'Proses pertikaian harus dilandasi bukti, disikapi dengan waspada dan mengalah, serta mengambil posisi jalan tengah yang tidak ekstrem agar hasilnya baik dan tidak berakhir celaka.' },
+            { id: 7, symbol: '䷆', name: 'SHI (SE): TENTARA', arti: 'Untuk mencapai kelancaran, sebuah tim harus dipimpin komandan yang arif, terlatih disiplin, dan didukung logistik yang memadai agar terhindar dari malapetaka.' },
+            { id: 8, symbol: '䷇', name: 'BI (PI): KOMPETISI, MERANGKUL', arti: 'Menjadi pemimpin merangkul akan sukses bila ada dukungan kuat, waktu tepat, dan integritas moral kebenaran, sehingga kawan dari empat penjuru akan datang bergabung.' },
+            
+            { id: 9, symbol: '䷈', name: 'XIAO XU (SIAO SI): HIMPUNAN KECIL', arti: 'Kearifan atau kekuatan yang terhimpun masih kecil, layaknya mendung yang belum menjadi hujan. Manfaatkan waktu ini untuk bersabar dan mempersiapkan diri dahulu.' },
+            { id: 10, symbol: '䷉', name: 'LU (LI): BERJALAN HATI-HATI', arti: 'Bersikap sangat sopan, hati-hati, dan menuruti aturan (diibaratkan menginjak ekor harimau tapi tidak diterkam) akan memudahkan langkah terhindar dari bahaya yang ada.' },
+            { id: 11, symbol: '䷊', name: 'TAI (THAI): SEJAHTERA', arti: 'Menandakan hal-hal picik telah berlalu dan datangnya pemimpin arif serta bijaksana, yang membawa keberuntungan dan kesejahteraan yang dapat dinikmati bersama.' },
+            { id: 12, symbol: '䷋', name: 'PI (PHI): HAMBATAN', arti: 'Hambatan terjadi karena kaum amoral yang bermunculan sementara kaum arif/bijaksana telah pergi, menciptakan situasi buruk dan kerugian.' },
+            { id: 13, symbol: '䷌', name: 'TONG REN (THUNG REN): KEBERSAMAAN', arti: 'Kemampuan berbaur dengan sesama manusia secara luas menghasilkan keharmonisan dan kelancaran untuk berjuang menyeberangi rintangan besar demi kebenaran.' },
+            { id: 14, symbol: '䷍', name: 'DA YOU (TA YU): BESAR, MAKMUR', arti: 'Melambangkan segala yang dimiliki benar-benar dalam keadaan sangat besar dan makmur, menandakan kelancaran serta kesuksesan besar tanpa pamrih.' },
+            { id: 15, symbol: '䷎', name: 'QIAN (CHIEN): RENDAH HATI', arti: 'Orang bijak yang selalu mengembangkan sikap serta tindakan rendah hati pasti akan mendatangkan keberhasilan dan memberikannya akhir hidup yang beruntung.' },
+            { id: 16, symbol: '䷏', name: 'YU (YI): KEGEMBIRAAN', arti: 'Melambangkan rasa kegembiraan dan antusiasme, yang akan sangat baik dan berguna bila diterapkan untuk mendirikan serta membina kekuatan.' },
+            { id: 17, symbol: '䷐', name: 'SUI (SUI): MENGIKUTI', arti: 'Menjadi pengikut teladan arif atau pemimpin yang mendapat pengikut pandai akan menghasilkan keberhasilan maha besar selama semuanya melangkah di jalan kebenaran.' },
+            { id: 18, symbol: '䷑', name: 'GU (KU): MENGATASI KEBOBROKAN', arti: 'Segala kebobrokan dapat diatasi dan menelurkan kesuksesan jika dilakukan dengan semangat perbaikan, persiapan yang matang, rencana seksama, dan kehati-hatian.' },
+            { id: 19, symbol: '䷒', name: 'LIN (LIN): HADIR MENGATUR', arti: 'Hadir untuk mengatur secara meluas akan mendatangkan keberhasilan raksasa, namun hal tersebut harus mutlak berada pada jalur kebenaran.' },
+            { id: 20, symbol: '䷓', name: 'GUAN (KUAN): MEMANDANG PENUH PERHATIAN', arti: 'Menggambarkan pelaksanaan suatu hal dengan kemuliaan dan penuh hikmat, sehingga rakyat yang memandangnya dapat terpengaruh oleh keluhuran sang pemimpin.' },
+            { id: 21, symbol: '䷔', name: 'SHI HE (SE HE): MENGGIGIT', arti: 'Menggigit dan memakan secara lancar hingga selesai; secara makna sangat tepat digunakan untuk menuntaskan serta memutuskan hukuman pada suatu perkara atau masalah.' },
+            { id: 22, symbol: '䷕', name: 'BI (PI): HIAS', arti: 'Tindakan untuk berhias memang dapat berjalan lancar, tetapi karena hanya mementingkan hiasan (kulit luar) semata maka hasil kemajuannya tergolong kecil.' },
+            { id: 23, symbol: '䷖', name: 'BO (PO): TERKELUPAS', arti: 'Suatu keadaan saat moral dan kebenaran telah terkikis habis, sedangkan kekuatan buruk menguat. Dalam keadaan ini, tidak baik untuk melakukan pergerakan maju.' },
+            { id: 24, symbol: '䷗', name: 'FU (FU): KEMBALI', arti: 'Saatnya untuk dapat kembali kepada jalan asal (kebenaran) dan memulai kembali secara tidak terburu-buru serta mendapat bantuan. Ini adalah saat yang baik untuk maju berusaha.' },
+
+            { id: 25, symbol: '䷘', name: 'WU WANG (WU WANG): SUNGGUH-SUNGGUH', arti: 'Memiliki kesungguhan tulus tiada kepalsuan akan mendatangkan keberhasilan besar asalkan bertahan dengan teguh pada jalur kebenaran agar terhindar dari celaka.' },
+            { id: 26, symbol: '䷙', name: 'DA XU (TA SI): HIMPUNAN BESAR', arti: 'Dapat menghimpun hal yang besar dan melimpah. Jika dikelola sembari teguh pada kebenaran, akan sangat baik digunakan untuk berbakti dan meluas membela yang benar.' },
+            { id: 27, symbol: '䷚', name: 'YI (YI): PEMELIHARA', arti: 'Sangat penting untuk mencermati cara-cara memelihara diri sendiri, makhluk hidup, maupun lingkungan secara mandiri, agar sesuai jalan kebenaran dan memperoleh berkat.' },
+            { id: 28, symbol: '䷛', name: 'DA GUO (TA KUO): MELAMPAUI BATAS MAKSIMAL', arti: 'Menggambarkan keadaan yang teramat berat bagaikan atap yang melengkung. Walau demikian, tetap baik digunakan untuk berjuang maju, keluar, dan berbakti pada masyarakat.' },
+            { id: 29, symbol: '䷜', name: 'KAN (KHAN): TERPEROSOK, TERJERUMUS', arti: 'Dalam mengatasi jeratan bahaya, hati harus bermoral ikhlas, tenang memperkuat diri, dan bertindak dengan terarah sehingga mampu melepaskan diri.' },
+            { id: 30, symbol: '䷝', name: 'LI (LI): API MENYALA', arti: 'Demi meraih kemakmuran dan masa depan yang sangat indah serta cemerlang, haruslah bersikap penurut namun kokoh menanggung beban berat pada jalur kebenaran.' },
+            { id: 31, symbol: '䷞', name: 'XIAN (SIEN): SENTUHAN RASA', arti: 'Tersentuhnya perasaan hingga menimbulkan keharmonisan. Hal ini akan mendatangkan kelancaran bagi usaha apa pun apabila dilakukan dengan berpegang pada kebenaran.' },
+            { id: 32, symbol: '䷟', name: 'HENG (HENG): LANGGENG', arti: 'Membangun serta mempertahankan kelanggengan suatu usaha jangka panjang akan berjalan sukses tanpa mengalami penyesalan atau celaka selama tidak menyimpang dari jalan kebenaran.' },
+            { id: 33, symbol: '䷠', name: 'DUN (TUN): MUNDUR', arti: 'Saat kondisi sekeliling dipenuhi pihak amoral/buruk, lebih baik bagi orang arif untuk mundur, menghindar, dan mengalah demi mengamankan diri di jalan kebenaran.' },
+            { id: 34, symbol: '䷡', name: 'DA JUANG (TA CUANG): JAYA DAN KUAT', arti: 'Berada pada kondisi atau kedudukan yang maha jaya serta kuat. Segala kekuatan besar ini semata-mata harus diamalkan dengan sangat teguh untuk mempertahankan kebenaran.' },
+            { id: 35, symbol: '䷢', name: 'JIN (CIN): MAJU', arti: 'Keberuntungan awal bagi kemajuan seseorang di mana ia dianugerahkan berkah yang limpah ruah dan penghargaan yang besar layaknya menteri dipercaya penuh oleh rajanya.' },
+            { id: 36, symbol: '䷣', name: 'MING YI (MING YI): KECERAHAN MEMUDAR', arti: 'Masuknya zaman gelap di mana sinar dan keadilan tertutup. Diperlukan sikap bertahan ekstra keras untuk tidak melanggar kebenaran dan dapat melalui hambatan tersebut.' },
+            { id: 37, symbol: '䷤', name: 'JIA REN (CIA REN): KELUARGA', arti: 'Pembinaan dasar yang selalu harus bermula dari pendisiplinan dan pembinaan diri sendiri agar seluruh anggota di dalam keluarga mampu mempertahankan jalan kebenaran.' },
+            { id: 38, symbol: '䷥', name: 'KUI (KHUI): BERTENTANGAN', arti: 'Menggambarkan saat realita saling bertentangan dengan apa yang diharapkan. Pada masa pertentangan ini, hanya mengerjakan perihal berskala kecil yang akan tetap mendatangkan kebaikan.' },
+            { id: 39, symbol: '䷦', name: 'JIAN (CIEN): BENCANA', arti: 'Bencana melanda. Untuk menanganinya sangat disarankan bertindak secara lembut/luwes dan menjauhi kebuntuan, serta mencari pertolongan yang lebih arif.' },
+            { id: 40, symbol: '䷧', name: 'JIE (JIE): MEMBEBASKAN', arti: 'Keberhasilan dalam membebaskan masalah diperoleh dengan kelembutan. Bila selesai, kembalilah pada tatanan semula. Apabila harus bertindak, lebih awal lebih baik.' },
+            { id: 41, symbol: '䷨', name: 'SUN (SUN): RUGI', arti: 'Dalam menanggung kerugian, mengedepankan kepercayaan serta saling menguatkan akan mengubah keterpurukan menjadi suatu kemujuran. Hal kecil sangat diperkenankan asal hatinya tulus.' },
+            { id: 42, symbol: '䷩', name: 'YI (YI): BERTAMBAH, MENGUNTUNGKAN', arti: 'Keadaan di mana semua tengah melimpah dan menguntungkan; waktu yang tepat untuk bergerak maju menerjang batasan bahaya demi mencapai tujuan.' },
+            { id: 43, symbol: '䷪', name: 'GUAI (KUAI): MENYINGKIRKAN', arti: 'Menyingkirkan pihak buruk tidak boleh tergesa-gesa. Serukan perlawanan melalui peringatan tulus dan himpunlah kekuatan bersama kawan seperjuangan baru ada harapan.' },
+            { id: 44, symbol: '䷫', name: 'GOU (KOU): BERTEMU', arti: 'Perjumpaan yang rapuh, ibarat bertemunya unsur buruk yang mendominasi, maka sungguh tidak baik menjadikannya sandaran atau ikatan jangka panjang.' },
+            { id: 45, symbol: '䷬', name: 'CUI (CHUI): BERKUMPUL', arti: 'Mengusahakan bertemunya para tokoh untuk menyatukan hati; hal ini akan memuluskan perjuangan secara meluas bila didasari niat baik.' },
+            { id: 46, symbol: '䷭', name: 'SHENG (SENG): NAIK', arti: 'Meraih kenaikan derajat/pangkat akan tercapai bila berjuang keras hingga sukses, memperoleh restu dari lingkungan, dan tanpa cemas melangkah ke masa depan.' },
+            { id: 47, symbol: '䷮', name: 'KUN (KHUN): TERKURUNG', arti: 'Merupakan ujian keterkurungan, sehingga harus teguh dan giat berusaha keras melewatinya secara jangka panjang. Usahakan jangan banyak mengeluh agar dipercaya orang lain.' },
+            { id: 48, symbol: '䷯', name: 'JING (CING): SUMUR', arti: 'Menyimbolkan pasokan tanpa henti. Namun, jika perjuangan meraih hasil tersebut gagal, rusak, atau terhenti di tengah jalan, segalanya akan percuma dan berbahaya.' },
+
+            { id: 49, symbol: '䷰', name: 'GE (KE): REVOLUSI', arti: 'Sebuah jalan mereformasi/merevolusi kehidupan hanya bisa berhasil apabila waktunya tiba, dipercaya, batasnya terjaga, dan sasarannya mengikuti kebenaran.' },
+            { id: 50, symbol: '䷱', name: 'DING (TING): BEJANA (BERKAKI TIGA)', arti: 'Benda yang merombak sifat lama ke dalam tatanan baru. Maknanya melambangkan perubahan yang maha besar, memelihara kebutuhan, dan membawa keberhasilan.' },
+            { id: 51, symbol: '䷲', name: 'ZHEN (CEN): GETARAN, PETIR', arti: 'Simbol kejutan yang menggentarkan. Meskipun getarannya besar mengejutkan, jika disambut dengan kesiagaan dan kewaspadaan ekstra, keadaan akan bisa dikendalikan.' },
+            { id: 52, symbol: '䷳', name: 'GEN (KEN): BERHENTI', arti: 'Menghentikan kehendak pada saat dan takaran yang pas supaya jiwa tidak serakah terjebak ego. Pembebasan dari tuntutan jasmani akan membuat individu terlindungi aman.' },
+            { id: 53, symbol: '䷴', name: 'JIAN (CIEN): BERKEMBANG BERTAHAP', arti: 'Menandakan perlunya kemajuan yang berjalan setahap demi setahap yang tertib secara adat dan beradab untuk merengkuh kebaikan jangka panjang.' },
+            { id: 54, symbol: '䷵', name: 'GUI MEI (KUI MEI): PASANGAN TAK SEPADAN', arti: 'Mengibaratkan pemaksaan hubungan pada sebuah hal yang tak layak atau jauh menyalahi porsi/kodrat. Melanjutkannya tak memberikan manfaat dan berujung bahaya.' },
+            { id: 55, symbol: '䷶', name: 'FENG (FUNG): MAKMUR', arti: 'Kualitas kemakmuran, kekuatan, dan kekayaan yang terang benderang. Perlu dibagikan ke masyarakat dan tak usah dicemaskan selama dibarengi kebijaksanaan.' },
+            { id: 56, symbol: '䷷', name: 'LU (LI): MELAKUKAN PERJALANAN', arti: 'Keadaan tengah dalam perantauan di lokasi asing. Hindari keteledoran dengan berpegang ketat pada kewaspadaan dan kebenaran untuk memperoleh kelancaran.' },
+            { id: 57, symbol: '䷸', name: 'XUN (SUN): MENYUSUP DAN MENURUTI', arti: 'Memiliki perilaku yang luwes, selalu menuruti hal bijak, serta merendah hati. Tatanan ini akan diterima ramah dan mengantarkan hasil yang bagus.' },
+            { id: 58, symbol: '䷹', name: 'DUI (TUI): GEMBIRA', arti: 'Hadapilah seluk-beluk urusan dunia luar memakai paras lapang dan kehangatan gembira dari relung hati, sebab sikap berkesadaran di jalan kebenaran memunculkan kebaikan tuntas.' },
+            { id: 59, symbol: '䷺', name: 'HUAN (HUAN): BUYAR, BUBAR', arti: 'Pada momentum hilangnya kesulitan yang mulai bubar, pemimpin harus secepatnya memeluk batin lingkungan melalui ketulusan kuat dan menerobos tantangan besar.' },
+            { id: 60, symbol: '䷻', name: 'JIE (JIE): MEMBATASI', arti: 'Mendisiplinkan suatu pembatasan dapat bermakna penghematan yang produktif. Tetapi, tidak pantas bila batasan tersebut menyiksa secara luar biasa dan menghilangkan kepatutan.' },
+            { id: 61, symbol: '䷼', name: 'ZHONG GU (CUNG FU): KETULUSAN TERPERCAYA', arti: 'Menerapkan budi yang luar biasa tulus serta andal untuk menggetarkan batin orang lain. Kebajikan tepercaya dapat menjembatani kesulitan seberat apa pun.' },
+            { id: 62, symbol: '䷽', name: 'XIAO GUO (SIAO KUO): SEDIKIT MELAMPAUI', arti: 'Cukup mumpuni bila dipakai menyusuri langkah kecil yang wajar, namun tidak kompeten pada urusan terlalu akbar. Bergeraklah merunduk tak melebihi kapabilitas.' },
+            { id: 63, symbol: '䷾', name: 'JI JI (CI CI): TELAH TERCAPAI', arti: 'Menggambarkan suatu tingkatan saat suatu tujuan telah tercapai dengan baik, namun tetap membutuhkan penjagaan agar pencapaian tersebut tidak memudar.' },
+            { id: 64, symbol: '䷿', name: 'WEI JI (WEI CI): BELUM TERCAPAI', arti: 'Menggambarkan suatu tingkatan saat suatu tujuan masih belum tercapai, namun menyimpan potensi harapan besar di masa depan bila diperjuangkan secara konsisten.' }
+        ];
+
+        const gridContainer = document.getElementById('card-grid');
+        const shuffleIndicator = document.getElementById('shuffle-indicator');
+        const modal = document.getElementById('result-modal');
+        const modalContent = document.getElementById('modal-content');
+        const modalSymbol = document.getElementById('modal-symbol');
+        const modalName = document.getElementById('modal-name');
+        const modalMeaning = document.getElementById('modal-meaning');
+        const btnCloseModal = document.getElementById('close-modal-btn');
+        
+        let shuffledDeck = [];
+        let shuffleInterval;
+        let isModalOpen = false;
+
+        // Fungsi mengacak array (Fisher-Yates)
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function renderCards(animate = false) {
+            gridContainer.innerHTML = '';
+            
+            if (animate) {
+                gridContainer.classList.add('shuffle-anim');
+                shuffleIndicator.classList.remove('opacity-0');
+                shuffleIndicator.classList.add('opacity-100');
+                
+                setTimeout(() => {
+                    gridContainer.classList.remove('shuffle-anim');
+                    shuffleIndicator.classList.remove('opacity-100');
+                    shuffleIndicator.classList.add('opacity-0');
+                }, 500);
+            }
+
+            shuffledDeck.forEach((hexagram, index) => {
+                const cardWrapper = document.createElement('div');
+                cardWrapper.className = 'card-container w-full h-full';
+                cardWrapper.onclick = () => handleCardClick(index);
+
+                const cardInner = document.createElement('div');
+                cardInner.className = 'card';
+
+                const cardBack = document.createElement('div');
+                cardBack.className = 'card-back shadow-inner';
+
+                const cardFront = document.createElement('div');
+                cardFront.className = 'card-front hidden'; // Tidak perlu ditampilkan flip di grid krn modal yang akan pop up
+                
+                cardInner.appendChild(cardBack);
+                cardInner.appendChild(cardFront);
+                cardWrapper.appendChild(cardInner);
+                gridContainer.appendChild(cardWrapper);
+            });
+        }
+
+        function handleCardClick(index) {
+            if (isModalOpen) return;
+            
+            const selectedHexagram = shuffledDeck[index];
+            
+            // Hentikan timer acak saat user membaca hasil
+            clearInterval(shuffleInterval);
+            isModalOpen = true;
+
+            // Populate Modal
+            modalSymbol.textContent = selectedHexagram.symbol;
+            modalName.textContent = selectedHexagram.name;
+            modalMeaning.textContent = selectedHexagram.arti;
+
+            // Tampilkan Modal
+            modal.classList.remove('hidden');
+            modalContent.classList.remove('hidden');
+            modalContent.classList.add('modal-enter');
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            modalContent.classList.remove('modal-enter');
+            modalContent.classList.add('hidden');
+            isModalOpen = false;
+            
+            // Kocok ulang setelah pengguna selesai membaca dan mulai ulang timer
+            performShuffle(true);
+            startTimer();
+        }
+
+        function performShuffle(animate = false) {
+            shuffledDeck = shuffle([...hexagramData]);
+            renderCards(animate);
+        }
+
+        function startTimer() {
+            // Kocok setiap 1 menit (60000 ms)
+            shuffleInterval = setInterval(() => {
+                if (!isModalOpen) {
+                    performShuffle(true);
+                }
+            }, 60000);
+        }
+
+        // Event Listener untuk tombol tutup modal
+        btnCloseModal.addEventListener('click', closeModal);
+
+        // Tutup modal jika klik di luar box
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Alur Validasi Kata Sandi
+        window.onload = () => {
+            const passwordScreen = document.getElementById('password-screen');
+            const appContent = document.getElementById('app-content');
+            const passwordInput = document.getElementById('password-input');
+            const passwordSubmitBtn = document.getElementById('password-submit-btn');
+            const passwordError = document.getElementById('password-error');
+
+            function verifikasiPassword() {
+                const inputPassword = passwordInput.value;
+                if (inputPassword === 'junialdisemm') {
+                    // Sembunyikan layar login dan tampilkan game utama
+                    passwordScreen.classList.add('hidden');
+                    appContent.classList.remove('hidden');
+                    
+                    // Jalankan game I Ching setelah password terverifikasi
+                    performShuffle(false);
+                    startTimer();
+                } else {
+                    // Tampilkan pesan kesalahan & reset inputan
+                    passwordError.classList.remove('hidden');
+                    passwordInput.classList.add('border-red-500');
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            }
+
+            // Daftarkan aksi klik tombol login
+            passwordSubmitBtn.addEventListener('click', verifikasiPassword);
+
+            // Daftarkan aksi tekan tombol 'Enter' pada input field
+            passwordInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    verifikasiPassword();
+                }
+            });
+
+            // Fokus otomatis ke input password saat awal memuat halaman
+            passwordInput.focus();
+        };
+
+    </script>
+</body>
+</html>
